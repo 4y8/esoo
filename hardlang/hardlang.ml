@@ -2,7 +2,7 @@ exception Invalid_input
 
 let rec eval ?pos:(pos=0) input a =
   match pos with
-    _ when pos = String.length input -> ()
+    _ when pos = String.length input -> a
   | _ -> 
       let new_a = 
         match String.get input pos with
@@ -12,4 +12,11 @@ let rec eval ?pos:(pos=0) input a =
       in
       print_int new_a;
       print_newline ();
-      eval ~pos:(pos + 1) input new_a 
+      eval ~pos:(pos + 1) input new_a
+        
+let rec repl a =
+  print_string "> ";
+  let new_a = eval (read_line()) a in
+  repl new_a
+
+let () = repl 0
