@@ -1,16 +1,15 @@
-let a = ref 0
 exception Invalid_input
 
-let rec eval ?pos:(pos=0) input =
+let rec eval ?pos:(pos=0) input a =
   match pos with
     _ when pos = String.length input -> ()
-  | _ ->
-      begin
+  | _ -> 
+      let new_a = 
         match String.get input pos with
-          '!' -> a := (lnot !a) land 2147483647
-        | '<' -> a := (!a lsl 1) land 2147483647
+          '!' -> (lnot a) land 2147483647
+        | '<' -> (a lsl 1) land 2147483647
         | _   -> raise(Invalid_input)
-      end;
-      print_int !a;
+      in
+      print_int new_a;
       print_newline ();
-      eval ~pos:(pos + 1) input
+      eval ~pos:(pos + 1) input new_a 
