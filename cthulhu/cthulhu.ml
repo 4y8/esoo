@@ -19,8 +19,8 @@ let eval input funs =
         match String.get input pos with
         | '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' |  '8' | '9' | 'A' | 'B'
         | 'C' | 'D' -> minint input (pos + 1) start
-        | _   -> [int_of_string ("0x" ^ (String.sub input start (pos - 1)));
-                  pos - start]
+        | _         -> [int_of_string ("0x" ^ (String.sub input start (pos - 1)));
+                        pos - start]
   in
   let rec parse input pos =
     match pos with 
@@ -31,13 +31,13 @@ let eval input funs =
         | 'i' -> Incr :: parse input (pos + 1)
         | 'd' -> Decr :: parse input (pos + 1)
         | '[' -> let arg = minint input (pos + 1) (pos + 1) in
-          Call (List.hd arg) :: parse input (pos + List.nth arg 2)
+          Call (List.hd arg) :: parse input (pos + List.nth arg 1)
         | ']' -> let arg = minint input (pos + 1) (pos + 1) in
-          PartCall (List.hd arg) :: parse input (pos + List.nth arg 2)
+          PartCall (List.hd arg) :: parse input (pos + List.nth arg 1)
         | 'E' -> let arg = minint input (pos + 1) (pos + 1) in
-          SwapE (List.hd arg) :: parse input (pos + List.nth arg 2)
+          SwapE (List.hd arg) :: parse input (pos + List.nth arg 1)
         | 'e' -> let arg = minint input (pos + 1) (pos + 1) in
-          Swape (List.hd arg) :: parse input (pos + List.nth arg 2)
+          Swape (List.hd arg) :: parse input (pos + List.nth arg 1)
         | 'o' -> Out  :: parse input (pos + 1)
         | '*' -> In   :: parse input (pos + 1)
         | _   -> raise Invalid_instruction
@@ -45,7 +45,7 @@ let eval input funs =
   in
   let fn = { acc = 0;
                index = int_of_string ("0x" ^ (List.hd strings));
-               body = (parse(List.nth strings 2) 0) }
+               body = (parse(List.nth strings 1) 0) }
   in
   let rec index lst pos num =
     match pos with
@@ -57,13 +57,28 @@ let eval input funs =
   in
   let new_funs = funs @ [fn] in
   let rec exec func pos funs2 =
-    match List.nth func.body pos with
-      Incr -> func.acc <- func.acc + 1
-    | Decr -> func.acc <- func.acc - 1
-    | Call address -> exec (List.nth funs2 (index funs2 0 address)) 0 funs2
-    | PartCall address -> exec (List.nth funs2
-                                  (index funs2 0 (address + 16 * func.acc))) 0 funs2
-    | Out -> print_char (Char.chr func.acc)
-    | In  -> func.acc <- Char.code (String.get (read_line()) 0)
-   in
-  if fn.index = 0xA then exec fn 0 new_funs
+    match pos with
+      a when a = List.length func.body -> ()
+    | _ ->
+      begin
+        match List.nth func.body pos with
+          Incr -> func.acc <- func.acc + 1
+        | Decr -> func.acc <- func.acc - 1
+        | Call address -> exec (List.nth funs2 (index funs2 0 address)) 0 funs2
+        | PartCall address -> exec (List.nth funs2
+                                      (index funs2 0 (address + 16 * func.acc))) 0 funs2
+        | Out -> print_char (Char.chr func.acc)
+        | In  -> func.acc <- Char.code (String.get (read_line()) 0)
+        | Swape address -> (List.nth funs2 (index funs2 0 address)).acc <- func.acc
+        | SwapE address -> func.acc <- (List.nth funs2 (index funs2 0 address)).acc
+      end;
+      exec func (pos + 1) funs2
+  in
+  if fn.index = 0xA then exec fn 0 new_funs;
+  new_funs
+
+let rec repl funs =
+  print_string "> ";
+  repl (eval (read_line()) funs)
+
+let _ = repl []
