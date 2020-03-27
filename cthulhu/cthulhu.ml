@@ -15,12 +15,16 @@ type func = { mutable acc : int; index : int; body : instruction list }
 
 let eval input funs =
   let strings = String.split_on_char ' ' input in
-      let rec minint input pos start =
-        match String.get input pos with
-        | '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' |  '8' | '9' | 'A' | 'B'
-        | 'C' | 'D' -> minint input (pos + 1) start
-        | _         -> [int_of_string ("0x" ^ (String.sub input start (pos - 1)));
-                        pos - start]
+  let rec minint input pos start =
+    match pos with
+    a when a = String.length input -> [int_of_string ("0x" ^ (String.sub input start (pos - start)));
+                    (pos - start)]
+    | _ ->
+      match String.get input pos with
+      | '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | 'A' | 'B'
+      | 'C' | 'D' -> minint input (pos + 1) start
+      | _         -> [int_of_string ("0x" ^ (String.sub input start (pos - start)));
+                      (pos - start)]
   in
   let rec parse input pos =
     match pos with 
@@ -31,21 +35,21 @@ let eval input funs =
         | 'i' -> Incr :: parse input (pos + 1)
         | 'd' -> Decr :: parse input (pos + 1)
         | '[' -> let arg = minint input (pos + 1) (pos + 1) in
-          Call (List.hd arg) :: parse input (pos + List.nth arg 1)
+          Call (List.hd arg) :: parse input (pos + 1 + List.nth arg 1)
         | ']' -> let arg = minint input (pos + 1) (pos + 1) in
-          PartCall (List.hd arg) :: parse input (pos + List.nth arg 1)
+          PartCall (List.hd arg) :: parse input (pos + 1 + List.nth arg 1)
         | 'E' -> let arg = minint input (pos + 1) (pos + 1) in
-          SwapE (List.hd arg) :: parse input (pos + List.nth arg 1)
+          SwapE (List.hd arg) :: parse input (pos + 1 + List.nth arg 1)
         | 'e' -> let arg = minint input (pos + 1) (pos + 1) in
-          Swape (List.hd arg) :: parse input (pos + List.nth arg 1)
+          Swape (List.hd arg) :: parse input (pos + 1 + List.nth arg 1)
         | 'o' -> Out  :: parse input (pos + 1)
         | '*' -> In   :: parse input (pos + 1)
         | _   -> raise Invalid_instruction
       end
   in
   let fn = { acc = 0;
-               index = int_of_string ("0x" ^ (List.hd strings));
-               body = (parse(List.nth strings 1) 0) }
+             index = int_of_string ("0x" ^ (List.hd strings));
+             body = (parse(List.nth strings 1) 0) }
   in
   let rec index lst pos num =
     match pos with
