@@ -46,23 +46,24 @@ let eval input funs =
   let rec index lst pos num =
     match pos with
       a when List.length lst = a ->
-      let rec find_max lst2 pos2 num2 hmax act_max =
+      let rec find_max lst2 pos2 num2 hmax act_max max_pos =
         match pos2 with
-          r when r = List.length lst ->
+          r when r = List.length lst2 ->
           begin
             match hmax with
-              1 -> find_max lst2 pos2 num2 0 0
+              true when act_max = 0 -> find_max lst2 0 num2 false 0 0
+            | true -> max_pos
             | _ -> -1
           end
         | _ ->
           begin
             match (List.nth lst2 pos2).index with
-              r when (r mod 16 = num2 mod 16) && (act_max < r) && (r < hmax * num)
-              -> find_max lst2 (pos2 + 1) num2 hmax r
-            | _ -> find_max lst2 (pos2 + 1) num2 hmax act_max
+              r when ((r mod 16) = (num2 mod 16)) && (act_max < r) && ((r < num2) || (hmax))
+                -> find_max lst2 (pos2 + 1) num2 hmax r pos2
+            | _ -> find_max lst2 (pos2 + 1) num2 hmax act_max max_pos
           end
       in
-      find_max lst 0 num 1 0
+      find_max lst 0 num true 0 0
     | _ ->
       match (List.nth lst pos).index with
         a when a = num -> pos
@@ -77,8 +78,12 @@ let eval input funs =
         match List.nth func.body pos with
           Incr -> func.acc <- func.acc + 1
         | Decr -> func.acc <- func.acc - 1
-        | Call address -> exec (List.nth funs2 (index funs2 0 address)) 0 funs2
-        | PartCall address -> exec (List.nth funs2
+        | Call address ->
+          let ind = index funs2 0 address in
+          if ind <> -1 then exec (List.nth funs2 ind) 0 funs2
+        | PartCall address ->
+          let ind = index funs2 0 address in
+          if ind <> -1 then exec (List.nth funs2
                                       (index funs2 0 (address + 16 * func.acc))) 0 funs2
         | Out -> print_char (Char.chr func.acc)
         | In  -> func.acc <- Char.code (String.get (read_line()) 0)
