@@ -105,7 +105,7 @@ let rec compile input =
           | NOT ->
             begin
               match List.nth tokens (pos + 1) with
-                IDENTIFIER str -> Unop (Str str, Not), pos + 2
+                IDENTIFIER str -> Unop (Identifier str, Not), pos + 2
               | _ -> raise Syntax_error
             end
           | _ -> raise Syntax_error
@@ -124,51 +124,69 @@ let rec compile input =
       expect fpos SEMI;
       [If (cond, List.hd body)], (fpos + 1)
     | IDENTIFIER func ->
-      expect (pos + 1) LPARENT;
-      let arg, apos = parse_expr (pos + 2) in
-      expect apos RPARENT;
-      expect (apos + 1) SEMI;
-      [FunctionCall (Identifier func, arg)], apos + 2
+      begin
+        match List.nth tokens (pos + 1) with
+          LPARENT ->
+          let arg, apos = parse_expr (pos + 2) in
+          expect apos RPARENT;
+          expect (apos + 1) SEMI;
+          [FunctionCall (Identifier func, arg)], apos + 2
+        | EQUAL ->
+          let value, npos = parse_expr (pos + 2) in
+          [Assignement(Identifier func, value)], npos
+        | _ -> raise Syntax_error
+        end
     | VOID ->
-      match List.nth tokens (pos + 2) with
-        LPARENT ->
-        let rec parse_body pos =
-          match List.nth tokens pos with
-            LCURL -> [], pos + 1
-          | _     ->
-            let body, npos = parse tokens (pos + 1) in
-            let tail, fpos = parse_body npos in
-            (body :: tail), fpos
-        in
-        let name =
-          match List.nth tokens (pos + 1) with
-            IDENTIFIER str -> str
-          | _ -> raise Syntax_error
-        in
-        expect (pos + 3) RPARENT;
-        expect (pos + 4) LCURL;
-        let body, fpos = parse_body (pos + 5) in
-        expect fpos RCURL;
-        expect (fpos + 1) SEMI;
-        [Fun (Identifier name, List.hd body)], (fpos + 2)
-      | _ ->
-        let rec parse_affect pos =
-          let left, npos =
+      begin
+        match List.nth tokens (pos + 2) with
+          LPARENT ->
+          let rec parse_body pos =
             match List.nth tokens pos with
-              IDENTIFIER str ->
-              begin
-                match List.nth tokens (pos + 1) with
-                  COMMA -> Assignement(Identifier str, Integer 0), (pos + 1)
-                | EQUAL ->
-                | _ -> raise Syntax_error
-              end
-            | NUMBER     num -> (Integer num), pos + 1
+              LCURL -> [], pos + 1
+            | _     ->
+              let body, npos = parse tokens (pos + 1) in
+              let tail, fpos = parse_body npos in
+              (body :: tail), fpos
+          in
+          let name =
+            match List.nth tokens (pos + 1) with
+              IDENTIFIER str -> str
             | _ -> raise Syntax_error
           in
-          match List.nth tokens (pos + npos) with
-            COMMA -> let value, fpos = parse_affect (npos + 1) in left :: value, fpos
-          | _ -> [left], pos + npos + 1
-        in
-      | _ -> raise Syntax_error
+          expect (pos + 3) RPARENT;
+          expect (pos + 4) LCURL;
+          let body, fpos = parse_body (pos + 5) in
+          expect fpos RCURL;
+          expect (fpos + 1) SEMI;
+          [Fun (Identifier name, List.hd body)], (fpos + 2)
+        | _ ->
+          let rec parse_affect pos =
+            let left, npos =
+              match List.nth tokens pos with
+                IDENTIFIER str ->
+                begin
+                  match List.nth tokens (pos + 1) with
+                  COMMA -> Assignement(Identifier str, Integer 0), (pos + 1)
+                  | EQUAL ->
+                    let value, npos = parse_expr (pos + 2) in
+                    Assignement(Identifier str, value), npos
+                  | _ -> raise Syntax_error
+                end
+              | NUMBER     num -> (Integer num), pos + 1
+              | _ -> raise Syntax_error
+            in
+            match List.nth tokens (pos + npos) with
+              COMMA -> let value, fpos = parse_affect (npos + 1) in left :: value, fpos
+            | _ -> [left], pos + npos + 1
+          in
+          let affects, fpos = parse_affect (pos + 1) in
+          expect fpos SEMI;
+          affects, (fpos + 1)
+      end
+    | RETURN ->
+      let rval, fpos = parse_expr (pos + 1) in
+      expect fpos SEMI;
+      [Return rval], (fpos + 1)
+    | _ -> raise Syntax_error
   in
   parse (lexer input 0) 0
