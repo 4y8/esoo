@@ -1,15 +1,7 @@
 exception Invalid_instruction
-exception Undeclared_function
 
 type instruction =
-  | Incr
-  | Decr 
-  | Call of int
-  | PartCall of int
-  | Out
-  | In
-  | SwapE of int 
-  | Swape of int
+    Incr | Decr | Call of int | PartCall of int | Out | In | SwapE of int | Swape of int
 
 type func = { mutable acc : int; index : int; body : instruction list }
 
@@ -17,8 +9,8 @@ let eval input funs =
   let strings = String.split_on_char ' ' input in
   let rec minint input pos start =
     match pos with
-    a when a = String.length input -> [int_of_string ("0x" ^ (String.sub input start (pos - start)));
-                    (pos - start)]
+      a when a = String.length input ->
+      [int_of_string ("0x" ^ (String.sub input start (pos - start))); (pos - start)]
     | _ ->
       match String.get input pos with
       | '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | 'A' | 'B'
@@ -53,11 +45,29 @@ let eval input funs =
   in
   let rec index lst pos num =
     match pos with
-      a when List.length lst = a -> raise Undeclared_function
+      a when List.length lst = a ->
+      let rec find_max lst2 pos2 num2 hmax act_max max_pos =
+        match pos2 with
+          r when r = List.length lst2 ->
+          begin
+            match hmax with
+              true when act_max = 0 -> find_max lst2 0 num2 false 0 0
+            | true -> max_pos
+            | _ -> -1
+          end
+        | _ ->
+          begin
+            match (List.nth lst2 pos2).index with
+              r when ((r mod 16) = (num2 mod 16)) && (act_max < r) && ((r < num2) || (hmax))
+                -> find_max lst2 (pos2 + 1) num2 hmax r pos2
+            | _ -> find_max lst2 (pos2 + 1) num2 hmax act_max max_pos
+          end
+      in
+      find_max lst 0 num true 0 0
     | _ ->
       match (List.nth lst pos).index with
         a when a = num -> pos
-    | _ -> index lst (pos + 1) num
+      | _ -> index lst (pos + 1) num
   in
   let new_funs = funs @ [fn] in
   let rec exec func pos funs2 =
@@ -68,8 +78,12 @@ let eval input funs =
         match List.nth func.body pos with
           Incr -> func.acc <- func.acc + 1
         | Decr -> func.acc <- func.acc - 1
-        | Call address -> exec (List.nth funs2 (index funs2 0 address)) 0 funs2
-        | PartCall address -> exec (List.nth funs2
+        | Call address ->
+          let ind = index funs2 0 address in
+          if ind <> -1 then exec (List.nth funs2 ind) 0 funs2
+        | PartCall address ->
+          let ind = index funs2 0 address in
+          if ind <> -1 then exec (List.nth funs2
                                       (index funs2 0 (address + 16 * func.acc))) 0 funs2
         | Out -> print_char (Char.chr func.acc)
         | In  -> func.acc <- Char.code (String.get (read_line()) 0)
@@ -84,5 +98,3 @@ let eval input funs =
 let rec repl funs =
   print_string "> ";
   repl (eval (read_line()) funs)
-
-let _ = repl []
