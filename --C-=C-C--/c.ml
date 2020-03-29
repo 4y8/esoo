@@ -2,7 +2,7 @@ exception Syntax_error
 
 type token =
   | PLUS | MINUS | OR | AND | IF | NUMBER of int | NOT | VOID | SEMI | LCURL
-  | RCURL | LPARENT | RPARENT | IDENTIFIER of string | EQUAL
+  | RCURL | LPARENT | RPARENT | IDENTIFIER of string | EQUAL | STRING of string
 
 type op =
   | Plus | Minus | And | Or | Not
@@ -17,8 +17,10 @@ type expression =
   | Fun          of expression list * expression list
   | Assignement  of expression * expression
   | Unop         of expression * op
+  | Str          of string
 
 let rec compile input =
+  let use_stdio = ref false in
   let rec lexer input pos =
     let is_digit chr = (Char.code('0') <= Char.code chr) && (Char.code('9') >= Char.code chr)
     in
@@ -39,6 +41,10 @@ let rec compile input =
     | _ ->
       match String.get input pos with
         ' ' | '\t' | '\n' -> lexer input (pos + 1)
+      | '#' -> let prepro = String.sub input (pos + 1) 17 in
+        use_stdio := (prepro = "include <stdio.h>") || (!use_stdio);
+        lexer input (String.length
+                       (parse_f (fun chr -> not (chr = '\n')) input pos))
       | '+' -> PLUS    :: lexer input (pos + 1)
       | '-' -> MINUS   :: lexer input (pos + 1)
       | '!' -> NOT     :: lexer input (pos + 1)
@@ -46,6 +52,7 @@ let rec compile input =
       | ')' -> RPARENT :: lexer input (pos + 1)
       | '{' -> LCURL   :: lexer input (pos + 1)
       | '}' -> RCURL   :: lexer input (pos + 1)
+      | ';' -> SEMI    :: lexer input (pos + 1)
       | '&' ->
         begin
           match String.get input (pos + 1) with
@@ -63,7 +70,45 @@ let rec compile input =
         NUMBER (int_of_string num) :: lexer input (pos + (String.length num))
       | chr when is_alpha chr ->
         let ident = parse_f is_ident input (pos + 1) in
-        match ident with
-          "if" -> IF
-        |
+        begin
+          match ident with
+            "if"   -> IF
+          | "void" -> VOID
+          | str    -> IDENTIFIER str
+        end :: lexer input (pos + (String.length ident))
+      | '"' ->
+        let str = parse_f (fun chr -> not (chr = '"')) input (pos + 1) in
+        STRING str :: lexer input (pos + (String.length str))
       | _ -> raise Syntax_error
+  in
+  let rec parse tokens pos =
+    let expect pos tok = if (List.nth tokens pos) <> tok then raise Syntax_error in
+    match List.nth tokens pos with
+      IF ->
+      let rec parse_bool pos =
+        let left, npos =
+          match List.nth tokens pos with
+            IDENTIFIER str -> (Identifier str), pos + 1
+          | NOT ->
+            begin
+              match List.nth tokens (pos + 1) with
+                IDENTIFIER str -> Unop (Str str, Not), pos + 2
+              | _ -> raise Syntax_error
+            end
+          | _ -> raise Syntax_error
+        in
+        match List.nth tokens (pos + npos) with
+          AND -> let value, fpos = parse_bool (npos + 1) in
+          Binop(left, value, And), fpos
+        | OR  -> let value, fpos = parse_bool (npos + 1) in
+          Binop(left, value, Or), fpos
+        | _ -> left, pos + npos + 1
+      in
+      expect (pos + 1) LPARENT;
+      let cond, bpos = parse_bool (pos + 2) in
+      expect bpos RPARENT;
+      let body, fpos = parse tokens (bpos + 1) in
+      expect fpos SEMI;
+      If (cond, body), (fpos + 1)
+  in
+  parse (lexer input 0) 0
