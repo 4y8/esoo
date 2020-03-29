@@ -2,22 +2,21 @@ exception Syntax_error
 
 type token =
   | PLUS | MINUS | OR | AND | IF | NUMBER of int | NOT | VOID | SEMI | LCURL
-  | RCURL | LPARENT | RPARENT | IDENTIFIER of string | EQUAL | STRING of string
+  | RCURL | LPARENT | RPARENT | IDENTIFIER of string | EQUAL | RETURN | COMMA
 
 type op =
   | Plus | Minus | And | Or | Not
 
 type expression =
-  | FunctionCall of expression
+  | FunctionCall of expression * expression
   | Integer      of int
   | Identifier   of string
   | Return       of expression
   | Binop        of expression * expression * op
   | If           of expression * expression
-  | Fun          of expression list * expression list
+  | Fun          of expression * expression list
   | Assignement  of expression * expression
   | Unop         of expression * op
-  | Str          of string
 
 let rec compile input =
   let use_stdio = ref false in
@@ -47,11 +46,13 @@ let rec compile input =
                        (parse_f (fun chr -> not (chr = '\n')) input pos))
       | '+' -> PLUS    :: lexer input (pos + 1)
       | '-' -> MINUS   :: lexer input (pos + 1)
+      | ',' -> COMMA   :: lexer input (pos + 1)
       | '!' -> NOT     :: lexer input (pos + 1)
       | '(' -> LPARENT :: lexer input (pos + 1)
       | ')' -> RPARENT :: lexer input (pos + 1)
       | '{' -> LCURL   :: lexer input (pos + 1)
       | '}' -> RCURL   :: lexer input (pos + 1)
+      | '=' -> EQUAL   :: lexer input (pos + 1)
       | ';' -> SEMI    :: lexer input (pos + 1)
       | '&' ->
         begin
@@ -66,23 +67,35 @@ let rec compile input =
           | _   -> raise Syntax_error
         end
       | chr when is_digit chr ->
-        let num = parse_f is_digit input (pos + 1) in
+        let num = parse_f is_digit input pos in
         NUMBER (int_of_string num) :: lexer input (pos + (String.length num))
       | chr when is_alpha chr ->
-        let ident = parse_f is_ident input (pos + 1) in
+        let ident = parse_f is_ident input pos in
         begin
           match ident with
-            "if"   -> IF
-          | "void" -> VOID
+            "if"     -> IF
+          | "void"   -> VOID
+          | "return" -> RETURN
           | str    -> IDENTIFIER str
         end :: lexer input (pos + (String.length ident))
-      | '"' ->
-        let str = parse_f (fun chr -> not (chr = '"')) input (pos + 1) in
-        STRING str :: lexer input (pos + (String.length str))
       | _ -> raise Syntax_error
   in
   let rec parse tokens pos =
     let expect pos tok = if (List.nth tokens pos) <> tok then raise Syntax_error in
+    let rec parse_expr pos =
+      let left, npos =
+        match List.nth tokens pos with
+          IDENTIFIER str -> (Identifier str), pos + 1
+        | NUMBER     num -> (Integer num), pos + 1
+        | _ -> raise Syntax_error
+      in
+      match List.nth tokens (pos + npos) with
+        PLUS  -> let value, fpos = parse_expr (npos + 1) in
+        Binop(left, value, Plus), fpos
+      | MINUS -> let value, fpos = parse_expr (npos + 1) in
+        Binop(left, value, Minus), fpos
+      | _ -> left, pos + npos + 1
+    in
     match List.nth tokens pos with
       IF ->
       let rec parse_bool pos =
@@ -109,6 +122,53 @@ let rec compile input =
       expect bpos RPARENT;
       let body, fpos = parse tokens (bpos + 1) in
       expect fpos SEMI;
-      If (cond, body), (fpos + 1)
+      [If (cond, List.hd body)], (fpos + 1)
+    | IDENTIFIER func ->
+      expect (pos + 1) LPARENT;
+      let arg, apos = parse_expr (pos + 2) in
+      expect apos RPARENT;
+      expect (apos + 1) SEMI;
+      [FunctionCall (Identifier func, arg)], apos + 2
+    | VOID ->
+      match List.nth tokens (pos + 2) with
+        LPARENT ->
+        let rec parse_body pos =
+          match List.nth tokens pos with
+            LCURL -> [], pos + 1
+          | _     ->
+            let body, npos = parse tokens (pos + 1) in
+            let tail, fpos = parse_body npos in
+            (body :: tail), fpos
+        in
+        let name =
+          match List.nth tokens (pos + 1) with
+            IDENTIFIER str -> str
+          | _ -> raise Syntax_error
+        in
+        expect (pos + 3) RPARENT;
+        expect (pos + 4) LCURL;
+        let body, fpos = parse_body (pos + 5) in
+        expect fpos RCURL;
+        expect (fpos + 1) SEMI;
+        [Fun (Identifier name, List.hd body)], (fpos + 2)
+      | _ ->
+        let rec parse_affect pos =
+          let left, npos =
+            match List.nth tokens pos with
+              IDENTIFIER str ->
+              begin
+                match List.nth tokens (pos + 1) with
+                  COMMA -> Assignement(Identifier str, Integer 0), (pos + 1)
+                | EQUAL ->
+                | _ -> raise Syntax_error
+              end
+            | NUMBER     num -> (Integer num), pos + 1
+            | _ -> raise Syntax_error
+          in
+          match List.nth tokens (pos + npos) with
+            COMMA -> let value, fpos = parse_affect (npos + 1) in left :: value, fpos
+          | _ -> [left], pos + npos + 1
+        in
+      | _ -> raise Syntax_error
   in
   parse (lexer input 0) 0
