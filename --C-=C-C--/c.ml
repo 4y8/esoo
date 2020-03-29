@@ -17,8 +17,9 @@ type expression =
   | Fun          of expression * expression list
   | Assignement  of expression * expression
   | Unop         of expression * op
+  | Declaration  of expression
 
-let rec compile input =
+let eval input =
   let use_stdio = ref false in
   let rec lexer input pos =
     let is_digit chr = (Char.code('0') <= Char.code chr) && (Char.code('9') >= Char.code chr)
@@ -166,18 +167,18 @@ let rec compile input =
                 IDENTIFIER str ->
                 begin
                   match List.nth tokens (pos + 1) with
-                  COMMA -> Assignement(Identifier str, Integer 0), (pos + 1)
+                  COMMA -> [Declaration(Identifier str)], (pos + 1)
                   | EQUAL ->
                     let value, npos = parse_expr (pos + 2) in
-                    Assignement(Identifier str, value), npos
+                    [Declaration(Identifier str);
+                     Assignement(Identifier str, value)], npos
                   | _ -> raise Syntax_error
                 end
-              | NUMBER     num -> (Integer num), pos + 1
               | _ -> raise Syntax_error
             in
             match List.nth tokens (pos + npos) with
-              COMMA -> let value, fpos = parse_affect (npos + 1) in left :: value, fpos
-            | _ -> [left], pos + npos + 1
+              COMMA -> let value, fpos = parse_affect (npos + 1) in left @ value, fpos
+            | _ -> left, pos + npos + 1
           in
           let affects, fpos = parse_affect (pos + 1) in
           expect fpos SEMI;
@@ -189,4 +190,7 @@ let rec compile input =
       [Return rval], (fpos + 1)
     | _ -> raise Syntax_error
   in
-  parse (lexer input 0) 0
+  let rec exec stmts pos =
+    match List.nth stmts pos with
+
+  in
