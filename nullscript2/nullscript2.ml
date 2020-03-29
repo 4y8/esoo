@@ -12,9 +12,23 @@ let rec eval input pos index mem fifo =
       | '<' -> eval input (pos + 1) (index - 1) mem fifo
       | '[' -> mem.(index) <- mem.(index) + 1;
           eval input (pos + 1) index mem fifo
+      | '~' -> mem.(index) <- 0;
+          eval input (pos + 1) index mem fifo
+      | ';' -> mem.(index) <- mem.(index) * mem.(index);
+          eval input (pos + 1) index mem fifo
       | ']' -> mem.(index) <- mem.(index) - 1;
           eval input (pos + 1) index mem fifo
+      | '&' -> mem.(index) <- int_of_string (read_line());
+          eval input (pos + 1) index mem fifo
       | '+' -> mem.(index) <- (get_queue fifo) + (get_queue (List.tl fifo));
+          eval input (pos + 1) index mem fifo
+      | '-' -> mem.(index) <- (get_queue fifo) - (get_queue (List.tl fifo));
+          eval input (pos + 1) index mem fifo
+      | 'x' -> mem.(index) <- (get_queue fifo) * (get_queue (List.tl fifo));
+          eval input (pos + 1) index mem fifo
+      | '/' -> mem.(index) <- (get_queue fifo) / (get_queue (List.tl fifo));
+          eval input (pos + 1) index mem fifo
+      | '"' -> mem.(index) <- (get_queue fifo) mod (get_queue (List.tl fifo));
           eval input (pos + 1) index mem fifo
       | ',' -> mem.(index) <- Char.code(String.get (read_line()) 0);
           eval input (pos + 1) index mem fifo
@@ -41,6 +55,7 @@ let rec eval input pos index mem fifo =
                  | Some x -> x 
           in
           eval input new_index index mem fifo
+      | 'q' -> exit 0
       | _ -> eval input (pos + 1) index mem fifo
 
 let rec repl() =
