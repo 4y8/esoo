@@ -21,6 +21,12 @@ type expression =
 
 let eval input =
   let use_stdio = ref false in
+  let rec index lst lm pos =
+    match lst with
+      []       -> raise Syntax_error
+    | lm :: tl -> pos
+    | _ :: tl  -> index tl lm (pos + 1)
+  in
   let rec lexer input pos =
     let is_digit chr = (Char.code('0') <= Char.code chr) && (Char.code('9') >= Char.code chr)
     in
@@ -147,7 +153,7 @@ let eval input =
             | _     ->
               let body, npos = parse tokens (pos + 1) in
               let tail, fpos = parse_body npos in
-              (body :: tail), fpos
+              (body @ tail), fpos
           in
           let name =
             match List.nth tokens (pos + 1) with
@@ -159,7 +165,7 @@ let eval input =
           let body, fpos = parse_body (pos + 5) in
           expect fpos RCURL;
           expect (fpos + 1) SEMI;
-          [Fun (Identifier name, List.hd body)], (fpos + 2)
+          [Fun (Identifier name, body)], (fpos + 2)
         | _ ->
           let rec parse_affect pos =
             let left, npos =
@@ -190,7 +196,58 @@ let eval input =
       [Return rval], (fpos + 1)
     | _ -> raise Syntax_error
   in
-  let rec exec stmts pos =
+  let rec exec stmts pos vars values =
     match List.nth stmts pos with
-
+      Integer n -> n, vars, values
+    | Declaration arg ->
+      begin
+        match arg with
+          Identifier var -> 0, vars @ [var], values
+        | _ -> raise Syntax_error
+      end
+    | Assignement (var, body) ->
+      begin
+        match var with
+          Identifier var ->
+          let varind     = index
+              vars
+              (List.find (fun chr -> not (chr = var)) vars)
+              0
+          in
+          let nval, _, _ = exec [body] 0 vars values in
+          values.(varind) <- nval;
+          0, vars, values
+        | _ -> raise Syntax_error
+      end
+    | Binop (lexp, rexp, op) ->
+      let f =
+        match op with
+          Plus  -> ( + )
+        | Minus -> ( - )
+        | And   -> ( land )
+        | Or    -> ( lor )
+        | _     -> raise Syntax_error
+      in
+      let lval, _, _ = exec [lexp] 0 vars values in
+      let rval, _, _ = exec [rexp] 0 vars values in
+      f lval rval, vars, values
+    | Unop (exp, Not) ->
+      let uval, _, _ = exec [exp] 0 vars values in
+      lnot uval, vars, values
+    | Unop (_, _) -> raise Syntax_error
+    | If (cond_exp, body_exp) ->
+      let cond_val, _, _ = exec [cond_exp] 0 vars values in
+      begin
+        match cond_val with
+          0 -> 0, vars, values
+        | _ ->
+          let _, _, nvalues = exec [body_exp] 0 vars values in
+          0, vars, nvalues
+      end
+    | FunctionCall(func, arg_exp) ->
+      let fun_name =
+        match func with
+          Identifier name -> name
+        | _ -> raise Syntax_error
+      in
   in
