@@ -41,17 +41,20 @@ let eval input astack pstack height =
   in
   let rec exec tokens astack pstack =
     match tokens with 
-      [] -> 0 
+      [] -> 0 , astack, pstack
     | Nil_angle :: tl -> exec tl pstack astack
-    | Nil_paren :: tl -> 1 + exec tl astack pstack
-    | Nil_brack :: tl -> (List.length astack) + exec tl astack pstack
+    | Nil_paren :: tl -> let sum, nastack,npstack = exec tl astack pstack in
+        sum + 1, nastack, npstack
+    | Nil_brack :: tl -> let sum, nastack,npstack = exec tl astack pstack in
+        sum + (List.length astack), nastack, npstack
     | Nil_curly :: tl -> let nstack = pop astack in
-        (List.hd nstack) + exec (List.tl nstack) pstack
+        let sum, nastack,npstack = exec tl (List.tl nstack) pstack in 
+        (List.hd nstack) + sum, nastack, npstack
     | Mon_paren (body) ::tl -> let n = exec body astack pstack in 
         n + exec tl (n :: astack) pstack
     | Mon_brack (body) :: tl ->
         exec tl astack pstack - exec body astack pstack
     | Mon_angle (body) :: tl -> let _ = exec body astack pstack in
         exec tl astack pstack
-    | 
+    | Mon_curly (body) :: tl ->
   in
