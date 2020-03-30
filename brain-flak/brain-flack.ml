@@ -7,7 +7,7 @@ type token = | Nil_paren
              | Mon_brack of token list
              | Mon_angle of token list
                    
-let eval input astack pstack height =
+let eval input astack pstack =
   let rec lex pos =
     let rec goto num chr alt_chr pos =
       match String.get input pos with
@@ -43,18 +43,41 @@ let eval input astack pstack height =
     match tokens with 
       [] -> 0 , astack, pstack
     | Nil_angle :: tl -> exec tl pstack astack
-    | Nil_paren :: tl -> let sum, nastack,npstack = exec tl astack pstack in
+    | Nil_paren :: tl -> 
+        let sum, nastack,npstack = exec tl astack pstack in
         sum + 1, nastack, npstack
-    | Nil_brack :: tl -> let sum, nastack,npstack = exec tl astack pstack in
+    | Nil_brack :: tl -> 
+        let sum, nastack,npstack = exec tl astack pstack in
         sum + (List.length astack), nastack, npstack
-    | Nil_curly :: tl -> let nstack = pop astack in
+    | Nil_curly :: tl -> 
+        let nstack = pop astack in
         let sum, nastack,npstack = exec tl (List.tl nstack) pstack in 
         (List.hd nstack) + sum, nastack, npstack
-    | Mon_paren (body) ::tl -> let n = exec body astack pstack in 
-        n + exec tl (n :: astack) pstack
+    | Mon_paren (body) :: tl -> 
+        let n,mas,mps = exec body astack pstack in 
+        let sum, nastack, npstack = exec tl (n :: mas) mps in
+        sum + n, nastack, npstack
     | Mon_brack (body) :: tl ->
-        exec tl astack pstack - exec body astack pstack
-    | Mon_angle (body) :: tl -> let _ = exec body astack pstack in
-        exec tl astack pstack
+        let n, mas, mps = exec body astack pstack in
+        let sum, nastack, npstack = exec tl mas mps in
+        sum - n, nastack, npstack
+    | Mon_angle (body) :: tl -> 
+        let _, mas, mps = exec body astack pstack in
+        exec tl mas mps
     | Mon_curly (body) :: tl ->
+        let rec while_ acc actstack passtack =
+          let nsum, nas, nps = exec body actstack passtack in
+          match List.hd (pop nas) with
+            0 -> nsum + acc, nas, nps
+          | _ -> while_ (nsum + acc) nas nps
+        in
+        let n, mas, mps = while_ 0 astack pstack in
+        let sum, nastack, npstack = exec tl mas mps in
+        sum + n, nastack, npstack
   in
+  exec (lex 0) [] []
+let rec repl astack pstack =
+  print_string "> ";
+  let _, nastack, npstack = eval (read_line()) astack pstack in
+  List.iter (fun int -> print_int int; print_newline()) nastack;
+  repl nastack npstack
