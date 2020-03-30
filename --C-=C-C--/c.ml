@@ -24,7 +24,7 @@ let eval input =
   let rec index lst lm pos =
     match lst with
       []       -> raise Syntax_error
-    | lm :: tl -> pos
+    | ind :: tl when ind = lm -> pos
     | _ :: tl  -> index tl lm (pos + 1)
   in
   let rec lexer input pos =
@@ -196,8 +196,8 @@ let eval input =
       [Return rval], (fpos + 1)
     | _ -> raise Syntax_error
   in
-  let rec exec stmts pos vars values =
-    match List.nth stmts pos with
+  let rec exec exp vars values =
+    match exp with
       Integer n -> n, vars, values
     | Declaration arg ->
       begin
@@ -214,7 +214,7 @@ let eval input =
               (List.find (fun chr -> not (chr = var)) vars)
               0
           in
-          let nval, _, _ = exec [body] 0 vars values in
+          let nval, _, _ = exec body vars values in
           values.(varind) <- nval;
           0, vars, values
         | _ -> raise Syntax_error
@@ -228,20 +228,20 @@ let eval input =
         | Or    -> ( lor )
         | _     -> raise Syntax_error
       in
-      let lval, _, _ = exec [lexp] 0 vars values in
-      let rval, _, _ = exec [rexp] 0 vars values in
+      let lval, _, _ = exec lexp vars values in
+      let rval, _, _ = exec rexp vars values in
       f lval rval, vars, values
     | Unop (exp, Not) ->
-      let uval, _, _ = exec [exp] 0 vars values in
+      let uval, _, _ = exec exp vars values in
       lnot uval, vars, values
     | Unop (_, _) -> raise Syntax_error
     | If (cond_exp, body_exp) ->
-      let cond_val, _, _ = exec [cond_exp] 0 vars values in
+      let cond_val, _, _ = exec cond_exp vars values in
       begin
         match cond_val with
           0 -> 0, vars, values
         | _ ->
-          let _, _, nvalues = exec [body_exp] 0 vars values in
+          let _, _, nvalues = exec body_exp vars values in
           0, vars, nvalues
       end
     | FunctionCall(func, arg_exp) ->
@@ -250,4 +250,51 @@ let eval input =
           Identifier name -> name
         | _ -> raise Syntax_error
       in
+      let arg_val, _, _ = exec arg_exp vars values in
+      begin
+        match fun_name with
+          "putchar" ->
+          print_char (Char.chr arg_val);
+          0, vars, values
+        | "getchar" ->
+          let chr = Char.code (String.get (read_line()) 0) in
+          chr, vars, values
+        | _ -> raise Syntax_error
+      end
+    | Fun (func, body) ->
+      begin
+        match func with
+          Identifier "main" ->
+          let rec exec_body exps vars values =
+            match exps with
+              []       -> vars, values
+            | _ :: []  -> vars, values
+            | hd :: tl ->
+              let _, nvars, nvalues = exec hd vars values in
+              exec_body tl nvars nvalues
+          in
+          let rec last l =
+            match l with
+              []       -> raise Not_found
+            | lt :: [] -> lt
+            | _ :: tl -> last tl
+          in
+          let nvars, nvals = exec_body body vars values in
+          let ret_val =
+            match last body with
+              Return n -> let ret_val, _, _ = exec n nvars nvals in
+              ret_val
+            | _ -> raise Syntax_error
+          in
+          ret_val, nvars, nvals
+        | _ -> raise Syntax_error
+      end
+    | Identifier var ->
+      let varind = index
+          vars
+          (List.find (fun chr -> not (chr = var)) vars)
+          0
+      in
+      values.(varind), vars, values
+    | _ -> raise Syntax_error
   in
