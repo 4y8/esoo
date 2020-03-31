@@ -1,21 +1,24 @@
-type token = | Nil_paren 
-             | Nil_curly
-             | Nil_brack 
-             | Nil_angle
-             | Mon_paren of token list
-             | Mon_curly of token list
-             | Mon_brack of token list
-             | Mon_angle of token list
+type token = 
+    Nil_paren 
+  | Nil_curly
+  | Nil_brack 
+  | Nil_angle
+  | Mon_paren of token list
+  | Mon_curly of token list
+  | Mon_brack of token list
+  | Mon_angle of token list
                    
-let i x     = x
-let k x y   = x
-let s x y z = x z (y z)
+type combinator =
+    I
+  | K
+  | S
+  | T of combinator * combinator
+         
 let rec church =
   function
-    0 -> k i
-  | 1 -> i 
-  | n -> s (s (k s) k) (church (n - 1)) 
-           
+    0 -> T(K, I)
+  | 1 -> I
+  | n -> T(T(S, T(T(S, T(K, S)), K)), (church (n-1)))
 
 let eval input stack =
   let rec lex pos =
@@ -47,16 +50,20 @@ let eval input stack =
   let rec exec tokens stack =
     match tokens with 
       [] -> [], stack
-    | Nil_angle :: tl -> s k, stack
-    | Nil_paren :: tl -> k, stack
-    | Nil_brack :: tl -> (church (List.length stack)), stack
+    | Nil_angle :: tl -> T(S,K), stack, tl
+    | Nil_paren :: tl -> K, stack, tl
+    | Nil_brack :: tl -> (church (List.length stack)), stack, tl
     | Nil_curly :: tl -> 
         begin 
           match stack with
-            [] -> i, []
+            [] -> I, []
           | hd :: tl -> hd, tl
-        end 
+        end, tl
     | Mon_paren (body) :: tl ->
+        let n, nstack = exec body stack in
+        n, n :: nstack, tl
     | Mon_brack (body) :: tl ->
+        exec body stack
     | Mon_curly (body) :: tl -> 
-    | Mon_brack (body) :: tl ->
+        
+    | Mon_angle (body) :: tl ->
