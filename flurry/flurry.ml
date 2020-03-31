@@ -1,4 +1,3 @@
-type combinator = | S | K | I
 type token = | Nil_paren 
              | Nil_curly
              | Nil_brack 
@@ -8,6 +7,16 @@ type token = | Nil_paren
              | Mon_brack of token list
              | Mon_angle of token list
                    
+let i x     = x
+let k x y   = x
+let s x y z = x z (y z)
+let rec church =
+  function
+    0 -> k i
+  | 1 -> i 
+  | n -> s (s (k s) k) (church (n - 1)) 
+           
+
 let eval input stack =
   let rec lex pos =
     let rec goto num chr alt_chr pos =
@@ -34,4 +43,20 @@ let eval input stack =
         | '<', _   -> Mon_angle (lex (pos + 1)) ::
                       lex (goto 0 '>' '<' (pos + 1))
         | _, _     -> lex (pos + 2)
-  in
+  in 
+  let rec exec tokens stack =
+    match tokens with 
+      [] -> [], stack
+    | Nil_angle :: tl -> s k, stack
+    | Nil_paren :: tl -> k, stack
+    | Nil_brack :: tl -> (church (List.length stack)), stack
+    | Nil_curly :: tl -> 
+        begin 
+          match stack with
+            [] -> i, []
+          | hd :: tl -> hd, tl
+        end 
+    | Mon_paren (body) :: tl ->
+    | Mon_brack (body) :: tl ->
+    | Mon_curly (body) :: tl -> 
+    | Mon_brack (body) :: tl ->
