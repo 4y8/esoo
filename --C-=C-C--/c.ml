@@ -298,3 +298,27 @@ let eval input =
       values.(varind), vars, values
     | _ -> raise Syntax_error
   in
+  let rec get_exps toks pos =
+    match pos with
+      len when len = List.length toks -> []
+    | _ -> let exps, npos = parse toks pos in
+      exps @ get_exps toks npos
+  in
+  let rec exec_all vars values exps =
+    match exps with
+      [] -> values, vars
+    | hd :: tl -> let _, nvars, nvalues = exec hd vars values in
+      exec_all nvars nvalues tl
+  in
+  let exps = get_exps (lexer input 0) 0 in
+  exec_all [] (Array.make 20 0) exps
+
+let from_file file =
+  let rec read_file ic =
+    try
+      let str = input_line ic in
+      str ^ (input_line ic)
+    with
+      End_of_file -> close_in ic; ""
+  in
+  eval (read_file (open_in file))
