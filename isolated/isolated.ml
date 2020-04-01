@@ -24,11 +24,11 @@ let rec eval input pc tp t io iomod =
     | "10" -> pc
     | "11" -> io
   in
-  let value, trgt_opt =
+  let value =
     match String.sub (pc * 8 + 2) 4 input with
-      "0000" -> source
-    | "0001" -> target + source
-    | "0010" -> target - source
+      "0000" -> [source]
+    | "0001" -> [target + source]
+    | "0010" -> [target - source]
     | "0011" -> [target * source]
     | "0100" -> [target / source]
     | "0101" -> [target mod source]
@@ -50,9 +50,9 @@ let rec eval input pc tp t io iomod =
                   0 -> [1]
                 | _ -> [0]
               end 
-          | "01" -> -1 * target
-          | "10" -> abs target
-          | "11" -> lnot target
+          | "01" -> [-1 * target]
+          | "10" -> [abs target]
+          | "11" -> [lnot target]
         end
     | "1111" ->
         begin 
@@ -63,4 +63,17 @@ let rec eval input pc tp t io iomod =
           | "11" -> [target; source; 2]
         end
     | _ -> raise Syntax_error
+  in 
+  let imod =
+    match value with
+      _ :: _ :: v :: [] -> v
+    | _ -> iomod
   in
+  let ntp, npc, 
+      match String.sub (pc * 8) 2 input with
+        "00" -> 
+          t.(tp) <- (List.hd value);
+          eval input
+      | "01" -> 
+      | "10" -> 
+      | "11" ->
