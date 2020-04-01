@@ -1,0 +1,6 @@
+* The Esoteric Programming Languages Zoo
+The Esoteric Programming Languages Zoo (a.k.a esoo for short), is a repository
+of implementations of esoteric programming languages. It is heavly inpired by
+Andrej Bauer's plzoo. All of them have an esolang wiki page so if you want
+informations about them go there. Some of them (like Cthulhu) was marked as
+unimplemented before the esoo.
