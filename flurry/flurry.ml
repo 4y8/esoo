@@ -48,16 +48,7 @@ let eval input stack =
         | _, _     -> lex (pos + 2)
   in
   (* This part is -stolen- inspired by : https://github.com/ngzhian/ski *)
-  let rec reduce tokens combs =
-    let rec to_comb comb toks =
-      match toks with
-        [] -> comb
-      | hd :: tl ->
-        to_comb (T(comb, hd)) tl
-    in
-    let final_comb = to_comb (List.hd tokens)  (List.tl tokens)
-    in
-    let rec simplify comb =
+  let rec simplify comb =
       match comb with
         I | K | S              -> comb
       | T (I, x)               -> simplify x
@@ -73,6 +64,16 @@ let eval input stack =
         then T (left, right)
         else simplify (T (left', right'))
     in
+  let rec reduce combs =
+    let rec to_comb comb toks =
+      match toks with
+        [] -> comb
+      | hd :: tl ->
+        to_comb (T(comb, hd)) tl
+    in
+    let final_comb = to_comb (List.hd combs)  (List.tl combs)
+    in
+    simplify final_comb
   in
   let rec exec tokens stack =
     match tokens with 
@@ -83,20 +84,41 @@ let eval input stack =
     | Nil_paren :: tl ->
       let combtl, nstack = exec tl stack in
       K :: combtl, nstack
-    | Nil_brack :: tl -> (church (List.length stack)), stack, tl
+    | Nil_brack :: tl ->
+      let combtl, nstack = exec tl stack in
+      (church (List.length stack)) :: combtl, nstack
     | Nil_curly :: tl -> 
         begin 
           match stack with
             [] ->
             let combtl, nstack = exec tl stack in
             I :: combtl, nstack
-          | hd :: tl -> hd, tl
+          | hd :: tl' ->
+            let combtl, nstack = exec tl (List.tl stack) in
+            hd :: combtl, nstack
         end
     | Mon_paren (body) :: tl ->
-        let n, nstack = exec body stack in
-        n, n :: nstack
+      let n, nstack = exec body stack in
+      let combtl, fstack = exec tl ((reduce n) :: nstack) in
+      (reduce n) :: combtl, fstack
     | Mon_brack (body) :: tl ->
-        exec body stack
-    | Mon_curly (body) :: tl -> 
-        
+      let n, nstack = exec body stack in
+      let combtl, fstack = exec tl nstack in
+      (reduce n) :: combtl, fstack
+    | Mon_curly (body) :: tl ->
+      let n, nstack      = exec body stack in
+      let arg, argstack  = exec [(List.hd tl)] nstack in
+      let combtl, fstack = exec (List.tl tl) ((reduce arg)::argstack) in
+      (reduce n) :: combtl, fstack
     | Mon_angle (body) :: tl ->
+      let rec compose combs =
+        match combs with
+          hd :: [] -> hd
+        | hd :: tl ->
+          T(hd, (compose tl))
+        | _ -> raise Not_found
+      in
+      let n, nstack = exec body stack in
+      let combtl, fstack = exec tl nstack in
+      (simplify (compose n)) :: combtl, fstack
+  in
