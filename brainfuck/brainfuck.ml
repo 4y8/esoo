@@ -1,8 +1,6 @@
-exception Syntax_error
-
 let rec eval input pos index mem =
   match pos with
-    _ when pos = String.length input -> ()
+    _ when pos = String.length input -> index, mem
   | _ -> 
       match String.get input pos with
         '>' -> eval input (pos + 1) (index + 1) mem
@@ -30,11 +28,9 @@ let rec eval input pos index mem =
                    pos + 1
           in
           eval input new_index index mem
-      | _ -> raise Syntax_error 
+      | _ -> eval input (pos + 1) index mem
 
-let rec repl() =
+let rec repl index mem =
   print_string "> ";
-  eval (read_line()) 0 0  (Array.make 4096 0);
-  repl()
-
-let _ = repl()
+  let nindex, nmem = eval (read_line()) 0 index mem in
+  repl nindex nmem
