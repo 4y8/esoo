@@ -64,16 +64,36 @@ let rec eval input pc tp t io iomod =
         end
     | _ -> raise Syntax_error
   in 
-  let imod =
+  let niomod =
     match value with
       _ :: _ :: v :: [] -> v
     | _ -> iomod
   in
-  let ntp, npc, 
-      match String.sub (pc * 8) 2 input with
-        "00" -> 
-          t.(tp) <- (List.hd value);
-          eval input
-      | "01" -> 
-      | "10" -> 
-      | "11" ->
+  let ntp, npc, nt, nio =
+    begin
+      match value with 
+        _ :: n :: _ -> 
+          begin
+            match String.sub (pc * 8 + 6) 2 with
+              "00" -> ntp, npc, (List.hd value)
+            | "01" -> (List.hd value), npc, t.(tp)
+            | "10" -> ntp, (List.hd value), t.(tp)
+            | "11" -> ntp, npc, t.(tp)
+          end
+      | _ -> tp, pc, t.(tp)
+    end,
+    begin
+      match String.sub (pc * 8 + 6) 2 with
+        "11" -> source
+      | _    -> io
+    end 
+  in
+  match String.sub (pc * 8) 2 input with
+    "00" -> 
+      t.(tp) <- (List.hd value);
+      eval input (npc + 1) ntp t nio niomod
+  | "01" -> 
+      eval input (npc + 1) (List.hd value) t nio niomod 
+  | "10" -> 
+      eval input 
+  | "11" -> 
