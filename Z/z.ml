@@ -29,7 +29,6 @@ let eval input mem a pointer lines =
                             | "zzZ" -> "8"
                             | "zZz" -> "9"
                             | "zZZ" -> "0"
-                            | "Zzz" -> "."
                             | _     -> ""
                           end ^ numoflist tail
                     in
