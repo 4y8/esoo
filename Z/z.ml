@@ -53,7 +53,7 @@ let eval input mem a pointer lines =
           | "zzZ" -> 
               begin 
                 match mem.(pointer) with
-                  0 -> exec (String.split_on_char ' ' (List.nth lines a))
+                  0 -> exec (String.split_on_char '  ' (List.nth lines a))
                          mem a pointer
                 | _ -> exec tl mem a pointer
               end
@@ -66,4 +66,4 @@ let eval input mem a pointer lines =
 let rec repl mem a pointer lines =
   print_string "> ";
   let mem2, a2, pointer2, lines2 = eval (real_line()) mem a pointer lines in
-  repl mem2 a2 pointer2 lines2 ;;
+  repl mem2 a2 pointer2 lines2
