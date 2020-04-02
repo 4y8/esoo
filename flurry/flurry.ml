@@ -122,3 +122,14 @@ let eval input stack =
       let combtl, fstack = exec tl nstack in
       (simplify (compose n)) :: combtl, fstack
   in
+  let rec ski_to_str comb =
+    match comb with
+      I       -> "I"
+    | K       -> "K"
+    | S       -> "S"
+    | T(x, y) -> "(" ^ ski_to_str x ^ ski_to_str y ^ ")"
+  in
+  let tokens       = lex 0 in
+  let skis, fstack = exec tokens stack in
+  let ski          = reduce skis in
+  ski_to_str ski
