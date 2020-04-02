@@ -25,12 +25,18 @@ let eval input stack =
     let rec goto num chr alt_chr pos =
       match String.get input pos with
         c when alt_chr = c -> goto (num + 1) chr alt_chr (pos + 1)
-      | c when chr = c && num = 0 -> pos + 1
+      | c when (chr = c) && (num = 0) -> pos + 1
       | c when chr = c -> goto (num - 1) chr alt_chr (pos + 1)
       | _ -> goto num chr alt_chr (pos + 1)
     in
     match pos with
-      len when len > ((String.length input) - 1) -> []
+      len when len = ((String.length input) - 1) ->
+      begin
+        match (String.get input pos) with
+          '>' | '}' | ')' | ']' -> []
+        | _                     -> raise (Invalid_argument "Unbalanced brackets")
+      end
+    | len when len > ((String.length input) - 1) -> []
     | _ -> 
         match (String.get input pos), (String.get input (pos + 1)) with
           '<', '>' -> Nil_angle :: lex (pos + 2)
@@ -45,6 +51,7 @@ let eval input stack =
                       lex (goto 0 ']' '[' (pos + 1))
         | '<', _   -> Mon_angle (lex (pos + 1)) ::
                       lex (goto 0 '>' '<' (pos + 1))
+        | '>', _ | '}', _ | ')', _ | ']', _ -> []
         | _, _     -> lex (pos + 2)
   in
   (* This part is -stolen- inspired by : https://github.com/ngzhian/ski *)
@@ -94,7 +101,7 @@ let eval input stack =
             let combtl, nstack = exec tl stack in
             I :: combtl, nstack
           | hd :: tl' ->
-            let combtl, nstack = exec tl (List.tl stack) in
+            let combtl, nstack = exec tl tl' in
             hd :: combtl, nstack
         end
     | Mon_paren (body) :: tl ->
@@ -122,6 +129,13 @@ let eval input stack =
       let combtl, fstack = exec tl nstack in
       (simplify (compose n)) :: combtl, fstack
   in
+  let tokens       = lex 0 in
+  let skis, fstack = exec tokens stack in
+  let ski          = reduce skis in
+  ski, fstack
+
+let rec repl stack args =
+  print_string "> ";
   let rec ski_to_str comb =
     match comb with
       I       -> "I"
@@ -129,7 +143,6 @@ let eval input stack =
     | S       -> "S"
     | T(x, y) -> "(" ^ ski_to_str x ^ ski_to_str y ^ ")"
   in
-  let tokens       = lex 0 in
-  let skis, fstack = exec tokens stack in
-  let ski          = reduce skis in
-  ski_to_str ski
+  let ski, nstack = eval (read_line()) (stack @ (List.map church args)) in
+  print_endline (ski_to_str ski);
+  repl nstack []
