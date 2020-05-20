@@ -66,3 +66,6 @@ let rec repl mem a pointer lines =
   print_string "> ";
   let (mem2, a2, pointer2), lines2 = eval (read_line()) mem a pointer lines in
   repl mem2 a2 pointer2 lines2
+
+let _ =
+  repl [||] 0 0 [];
