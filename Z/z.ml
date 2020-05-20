@@ -59,12 +59,19 @@ let eval input mem a pointer lines =
           | _ -> exec tl mem a pointer lines
         end
   in
-  let nlines = Str.split (Str.regexp "  ")  input in
-  exec (String.split_on_char ' ' input) mem a pointer (lines @ nlines), lines @ nlines
+  let rec exec_list l mem a pointer lines =
+    match l with
+        [] -> mem, a, pointer, lines
+      | hd :: tl -> 
+        let nmem, na, np = exec (String.split_on_char ' ' hd) mem a pointer lines in
+        exec_list tl nmem na np lines
+  in
+  let nlines = Str.split (Str.regexp "  ") input in
+  exec_list nlines mem a pointer (lines @ nlines)
                            
 let rec repl mem a pointer lines =
   print_string "> ";
-  let (mem2, a2, pointer2), lines2 = eval (read_line()) mem a pointer lines in
+  let mem2, a2, pointer2, lines2 = eval (read_line()) mem a pointer lines in
   repl mem2 a2 pointer2 lines2
 
 let _ =
