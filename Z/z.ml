@@ -1,4 +1,18 @@
-let eval input mem a pointer lines = 
+let eval input mem a pointer lines =
+  let safe_change l p a =
+    let len = Array.length l in
+    if len < p
+    then
+      let nl = Array.make (p + 1) 0 in
+      Array.blit l 0 nl 0 len;
+      nl.(p) <- a;
+      nl
+    else
+      begin
+        l.(p) <- a;
+        l
+      end
+  in
   let rec exec strs mem a pointer lines =
     match strs with
       [] -> mem, a, pointer
@@ -36,17 +50,25 @@ let eval input mem a pointer lines =
                 | _   -> exec tl mem a pointer lines
               end
           | "zZ" -> exec tl mem a a lines
-          | "Zz" -> mem.(pointer) <- a;
+          | "Zz" -> let mem = safe_change mem pointer a in
               exec tl mem a pointer lines
-          | "ZZ" -> 
-              begin
-                match List.hd tl with
-                  "z" -> mem.(pointer) <- mem.(pointer) + a;
-                    exec (List.tl tl) mem a pointer lines
-                | "Z" -> mem.(pointer) <- mem.(pointer) - a;
-                    exec (List.tl tl) mem a pointer  lines
-                | _   -> exec tl mem a pointer lines
-              end
+          | "ZZ" ->
+            let mem =
+              if Array.length mem < pointer
+              then
+                let nl = Array.make (pointer + 1) 0 in
+                Array.blit mem 0 nl 0 (Array.length mem);
+                nl
+              else mem
+            in
+            begin
+              match List.hd tl with
+                "z" -> mem.(pointer) <- mem.(pointer) + a;
+                exec (List.tl tl) mem a pointer lines
+              | "Z" -> mem.(pointer) <- mem.(pointer) - a;
+                exec (List.tl tl) mem a pointer  lines
+              | _   -> exec tl mem a pointer lines
+            end
           | "zzz" -> exec (String.split_on_char ' ' (List.nth lines a))
                        mem a pointer lines
           | "zzZ" -> 
